@@ -5,6 +5,16 @@ import ServiceManagement
 @MainActor
 enum NotchMusicApp {
     static func main() {
+        if CommandLine.arguments.contains("--login-status") {
+            switch SMAppService.mainApp.status {
+            case .enabled: print("enabled")
+            case .requiresApproval: print("requires approval")
+            case .notRegistered: print("not registered")
+            case .notFound: print("not found")
+            @unknown default: print("unknown")
+            }
+            return
+        }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -36,7 +46,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
         item.menu = menu
         statusItem = item
         panel.start()
-        if CommandLine.arguments.contains("--enable-login"), SMAppService.mainApp.status == .notRegistered {
+        if CommandLine.arguments.contains("--enable-login"), SMAppService.mainApp.status != .enabled {
             changeLoginItem(enable: true)
         }
     }
@@ -111,8 +121,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate
 
     private func changeLoginItem(enable: Bool) {
         do {
-            if enable { try SMAppService.mainApp.register() }
-            else { try SMAppService.mainApp.unregister() }
+            if enable {
+                if SMAppService.mainApp.status != .requiresApproval { try SMAppService.mainApp.register() }
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
             if enable && SMAppService.mainApp.status == .requiresApproval {
                 SMAppService.openSystemSettingsLoginItems()
             }
